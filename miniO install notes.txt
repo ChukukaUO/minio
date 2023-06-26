@@ -1,0 +1,82 @@
+useradd -s /sbin/nologin -d /opt/minio minio													-- // CREATE minio user
+
+mkdir -p /opt/minio/bin																			-- create directory to place binaries
+
+wget https://dl.minio.io/server/minio/release/linux-amd64/minio -O /opt/minio/bin/minio			-- // download binaraies and place in created directory
+
+chmod +x /opt/minio/bin/minio																	-- //make bin location executable
+
+nano /opt/minio/minio.conf																		-- create the minio config file
+
+mkdir -p /minio/data																			-- create data path on all servers
+
+chown -R minio:minio /minio/data/																-- change ownership of minio file location to minio user
+
+nano /etc/systemd/system/minio.service															-- create as a daemon service. see below for sample service file
+	systemctl daemon-reload
+	systemctl start minio
+	systemctl enable minio
+
+firewall-cmd --zone=public --add-port=9000/tcp --permanent
+	telnet localhost 9000
+	systemctl status minio
+	
+
+
+nano /opt/minio/minio.conf
+	-- entries for minio.conf below
+		MINIO_VOLUMES="/minio/data/"
+		MINIO_OPTS="--address "
+		MINIO_ACCESS_KEY="AK************************X"
+		MINIO_SECRET_KEY="SK*********************MpH"
+
+
+
+				nano /etc/systemd/system/minio.service
+
+				--------------------------------------------
+
+				[Unit]
+				Description=Minio
+				Documentation=https://docs.minio.io
+				Wants=network-online.target
+				After=network-online.target
+				AssertFileIsExecutable=/opt/minio/bin/minio
+
+				[Service]
+				WorkingDirectory=/opt/minio
+				User=minio
+				Group=minio
+				PermissionsStartOnly=true
+				EnvironmentFile=-/opt/minio/minio.conf
+				ExecStartPre=/bin/bash -c "[ -n \"${MINIO_VOLUMES}\" ] || echo \"Variable MINIO_VOLUMES not set in /opt/minio/minio.conf\""
+				ExecStart=/opt/minio/bin/minio server $MINIO_OPTS $MINIO_VOLUMES
+				StandardOutput=journal
+				StandardError=inherit
+				# Specifies the maximum file descriptor number that can be opened by this process
+				LimitNOFILE=65536
+				# Disable timeout logic and wait until process is stopped
+				TimeoutStopSec=0
+				# SIGTERM signal is used to stop Minio
+				KillSignal=SIGTERM
+				SendSIGKILL=no
+				SuccessExitStatus=0
+				[Install]
+				WantedBy=multi-user.target
+
+-------------------------------------------
+
+
+cat > /etc/default/minio << EOF
+MINIO_OPTS="http://minio-1:9000/data http://minio-2:9000/data http://minio-3:9000/data http://minio-4:9000/data"
+MINIO_ACCESS_KEY="AK**************************BX"
+MINIO_SECRET_KEY="SKFz********************FMpH"
+EOF
+
+				cat > /etc/hosts << EOF
+				10.7.7.182    minio-1
+				10.7.7.183    minio-2
+				10.7.7.184    minio-3
+				10.7.7.185    minio-4
+				127.0.0.1     localhost
+				EOF

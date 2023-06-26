@@ -1,0 +1,123 @@
+---
+# This playbook helps create then setup basic requirements for minio user
+#   where required
+- name: minio install play
+
+  hosts: linux
+
+  tasks: 
+    # Creates minio user, with nologin shell, and home directory
+    - name: Create minio user
+      ansible.builtin.user:
+        name: minio
+        shell: /sbin/nologin
+        home: /opt/minio 
+
+    # Create bin directory and parent directories if needed
+    - name: Create bin directory
+      ansible.builtin.file:
+        path: /opt/minio/bin
+        state: directory
+        mode: '0755'
+
+    # Download binaries into bin directory created from above
+    - name: Download binaries
+      ansible.builtin.get_url:
+        url: https://dl.minio.io/server/minio/release/linux-amd64/minio
+        dest: /opt/minio/bin/minio
+        mode: '0440'
+
+    # Grant 'all' executable permissions to bin directory 
+    - name: Make bin directory executable
+      ansible.builtin.file:
+        path: /opt/minio/bin/
+        state: touch
+        mode: a+x
+
+    # create as a daemon service
+    - name: Create daemon service
+      ansible.builtin.blockinfile:
+        create: true
+        path: /etc/systemd/system/minio.service
+        block: |
+            systemctl daemon-reload
+            systemctl start minio
+            systemctl enable minio
+            firewall-cmd --zone=public --add-port=9000/tcp --permanent
+            telnet localhost 9000
+            systemctl status minio
+
+    # Edit minio.conf
+    - name: Minio config
+      ansible.builtin.blockinfile:
+        create: true
+        path: /opt/minio/minio.conf
+        block: |
+          -- entries for minio.conf below
+            MINIO_VOLUMES="/minio/data/"
+            MINIO_OPTS="--address "
+            MINIO_ACCESS_KEY="AK************************X"
+            MINIO_SECRET_KEY="SK*********************MpH"
+
+    # Edit minio.service
+    - name: Minio service config
+      ansible.builtin.blockinfile:
+        create: true
+        path: /etc/systemd/system/minio.service
+        block: |
+          --------------------------------------------
+
+          [Unit]
+          Description=Minio
+          Documentation=https://docs.minio.io
+          Wants=network-online.target
+          After=network-online.target
+          AssertFileIsExecutable=/opt/minio/bin/minio
+
+          [Service]
+          WorkingDirectory=/opt/minio
+          User=minio
+          Group=minio
+          PermissionsStartOnly=true
+          EnvironmentFile=-/opt/minio/minio.conf
+          ExecStartPre=/bin/bash -c "[ -n \"${MINIO_VOLUMES}\" ] || echo \"Variable MINIO_VOLUMES not set in /opt/minio/minio.conf\""
+          ExecStart=/opt/minio/bin/minio server $MINIO_OPTS $MINIO_VOLUMES
+          StandardOutput=journal
+          StandardError=inherit
+          # Specifies the maximum file descriptor number that can be opened by this process
+          LimitNOFILE=65536
+          # Disable timeout logic and wait until process is stopped
+          TimeoutStopSec=0
+          # SIGTERM signal is used to stop Minio
+          KillSignal=SIGTERM
+          SendSIGKILL=no
+          SuccessExitStatus=0
+          [Install]
+          WantedBy=multi-user.target
+
+          -------------------------------------------
+
+    # Edit default minio file
+    - name: Minio default config
+      ansible.builtin.blockinfile:
+        create: true
+        path: /etc/default/minio
+        block: |
+          MINIO_OPTS="http://minio-1:9000/data http://minio-2:9000/data http://minio-3:9000/data http://minio-4:9000/data"
+          MINIO_ACCESS_KEY="AK**************************BX"
+          MINIO_SECRET_KEY="SKFz********************FMpH"
+
+    # Edit hosts file
+    - name: Update hosts file
+      ansible.builtin.blockinfile:
+        create: true
+        insertafter: "EOF"
+        path: /etc/hosts
+        block: |
+          10.7.7.182    minio-1
+          10.7.7.183    minio-2
+          10.7.7.184    minio-3
+          10.7.7.185    minio-4
+          127.0.0.1     localhost
+
+...
