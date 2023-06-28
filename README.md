@@ -1,11 +1,18 @@
 # Minio
 
-This repository provides an Ansible playbook to automate initial setup for Minio on several platforms or endpoints. 
+This repository provides an Ansible playbook (and alternative Shell script)
+ to automate initial setup for Minio on several platforms or endpoints.
 
-## Usage
+## Ansible version usage
 
 ```bash
-ansible-playbook ./minio-lint.yaml
+ansible-playbook ./minio-playbook.yaml
+```
+
+## Shellscript version usage
+
+```bash
+bash ./minio.sh
 ```
 
 ## Contributing
