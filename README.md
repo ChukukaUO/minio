@@ -3,13 +3,17 @@
 This repository provides an Ansible playbook (and alternative Shell script)
  to automate initial setup for Minio on several platforms or endpoints.
 
-## Ansible version usage
+## Usage
+
+Please see instructions provided below for each version provided.
+
+### Ansible version
 
 ```bash
 ansible-playbook ./minio-playbook.yaml
 ```
 
-## Shellscript version usage
+### Shellscript version
 
 ```bash
 bash ./minio.sh

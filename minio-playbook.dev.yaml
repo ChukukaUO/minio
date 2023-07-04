@@ -62,6 +62,38 @@
         state: enabled
         permanent: true
 
+    # BEGIN: telnet localhost 9000      [checking connectivity]
+    - name: Checks and waits for port 9000, 10 seconds delay before check
+      ansible.builtin.wait_for:
+        # host: localhost     ## Default: "127.0.0.1"
+        port: 8000
+        delay: 10
+        timeout: 120          ## Check for 2 minutes
+
+    #< BEGIN: Check status of MinIO
+    # - name: Populate service facts
+    #   ansible.builtin.service_facts:
+
+    # - name: Print service facts
+    #   ansible.builtin.debug:
+    #     var: ansible_facts.service
+    #> END: Check status of MinIO
+    - name: Check status of MinIO
+      ansible.builtin.command: systemctl status minio
+        
+    # # create as a daemon service
+    # - name: Create daemon service
+    #   ansible.builtin.blockinfile:
+    #     create: true
+    #     path: /etc/systemd/system/minio.service
+    #     block: |
+    #         systemctl daemon-reload
+    #         systemctl start minio
+    #         systemctl enable minio
+    #         firewall-cmd --zone=public --add-port=9000/tcp --permanent
+    #         telnet localhost 9000
+    #         systemctl status minio
+
     # Edit minio.conf
     - name: Minio config
       ansible.builtin.blockinfile:
@@ -134,15 +166,5 @@
           10.7.7.184    minio-3
           10.7.7.185    minio-4
           127.0.0.1     localhost
-
-    # Check 
-    ## Alternative with ansible.builtin.wait_for
-    - name: Checking port is open
-      ansible.builtin.command: telnet localhost 9000
-
-    # 
-    ## Alternative with ansible.builtin.service_facts || ansible.builtin.debug
-    - name: Check status of MinIO
-      ansible.builtin.command: systemctl status minio
 
 ...
