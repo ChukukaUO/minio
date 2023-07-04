@@ -47,7 +47,7 @@
 
     - name: Start service MinIO, if not started
       ansible.builtin.service:
-        name: httpd
+        name: minio.service
         state: started
         enabled: yes
 
@@ -75,6 +75,8 @@
             MINIO_SECRET_KEY="SK*********************MpH"
 
     # Edit minio.service
+    ## Option to download file exists; see bash command -directory below
+    ## curl -O https://raw.githubusercontent.com/minio/minio-service/master/linux-systemd/minio.service
     - name: Minio service config
       ansible.builtin.blockinfile:
         create: true
@@ -139,10 +141,17 @@
     ## Alternative with ansible.builtin.wait_for
     - name: Checking port is open
       ansible.builtin.command: telnet localhost 9000
+      register: m_telnet_status
+
+    - debug:
+        var: m_telnet_status.stdout_lines
 
     # 
     ## Alternative with ansible.builtin.service_facts || ansible.builtin.debug
     - name: Check status of MinIO
       ansible.builtin.command: systemctl status minio
+      register: m_status
 
+    - debug:
+        var: m_status.stdout_lines
 ...

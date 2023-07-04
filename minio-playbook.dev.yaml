@@ -47,7 +47,7 @@
 
     - name: Start service MinIO, if not started
       ansible.builtin.service:
-        name: httpd
+        name: minio.service
         state: started
         enabled: yes
 
@@ -66,9 +66,13 @@
     - name: Checks and waits for port 9000, 10 seconds delay before check
       ansible.builtin.wait_for:
         # host: localhost     ## Default: "127.0.0.1"
-        port: 8000
+        port: 9000
         delay: 10
         timeout: 120          ## Check for 2 minutes
+      register: m_telnet_status
+
+    - debug:
+        var: m_telnet_status.stdout_lines
 
     #< BEGIN: Check status of MinIO
     # - name: Populate service facts
@@ -80,6 +84,10 @@
     #> END: Check status of MinIO
     - name: Check status of MinIO
       ansible.builtin.command: systemctl status minio
+      register: m_status
+
+    - debug:
+        var: m_status.stdout_lines
         
     # # create as a daemon service
     # - name: Create daemon service
@@ -107,6 +115,8 @@
             MINIO_SECRET_KEY="SK*********************MpH"
 
     # Edit minio.service
+    ## Option to download file exists; see bash command -directory below
+    ## curl -O https://raw.githubusercontent.com/minio/minio-service/master/linux-systemd/minio.service
     - name: Minio service config
       ansible.builtin.blockinfile:
         create: true
