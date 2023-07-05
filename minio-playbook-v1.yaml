@@ -1,7 +1,8 @@
 ---
-# This playbook helps setup an Object Storage Server via MinIO
-## REQUIRES: mini-firewall.sh
-- name: MinIO install playbook
+# This playbook helps create then setup basic requirements for minio user
+#   where required
+- name: minio install play
+
   hosts: linux
 
   tasks: 
@@ -25,7 +26,7 @@
         url: https://dl.minio.io/server/minio/release/linux-amd64/minio
         dest: /opt/minio/bin/minio
         mode: '0440'
-        validate_certs: false   ## should only activate when necessary
+        validate_certs: false
 
     # Grant 'all' executable permissions to bin directory 
     - name: Make bin directory executable
@@ -36,14 +37,16 @@
 
     # create as a daemon service
     - name: Create daemon service
-      ansible.builtin.file:
+      ansible.builtin.blockinfile:
+        create: true
         path: /etc/systemd/system/minio.service
-        state: touch
-        mode: '0440'
-
-    - name: Reload systemd
-      ansible.builtin.systemd:
-        daemon_reload: true
+        block: |
+            systemctl daemon-reload
+            systemctl start minio
+            systemctl enable minio
+            firewall-cmd --zone=public --add-port=9000/tcp --permanent
+            telnet localhost 9000
+            systemctl status minio
 
     # Edit minio.conf
     - name: Minio config
@@ -58,8 +61,6 @@
             MINIO_SECRET_KEY="SK*********************MpH"
 
     # Edit minio.service
-    ## Option to download file exists; see bash command -directory below
-    ## curl -O https://raw.githubusercontent.com/minio/minio-service/master/linux-systemd/minio.service
     - name: Minio service config
       ansible.builtin.blockinfile:
         create: true
@@ -108,67 +109,16 @@
           MINIO_SECRET_KEY="SKFz********************FMpH"
 
     # Edit hosts file
-    - block:
-      - name: Update hosts file
-        ansible.builtin.blockinfile:
-          create: true
-          insertafter: "EOF"
-          path: /etc/hosts
-          block: |
-            10.7.7.182    minio-1
-            10.7.7.183    minio-2
-            10.7.7.184    minio-3
-            10.7.7.185    minio-4
-            127.0.0.1     localhost
-        ignore_errors: true                   ## !Not for production use
-      
+    - name: Update hosts file
+      ansible.builtin.blockinfile:
+        create: true
+        insertafter: "EOF"
+        path: /etc/hosts
+        block: |
+          10.7.7.182    minio-1
+          10.7.7.183    minio-2
+          10.7.7.184    minio-3
+          10.7.7.185    minio-4
+          127.0.0.1     localhost
 
-    # Configure Firewalld
-    ## REQUIRES: ansible.posix; and firewalld
-    ## INSTALLATION: `ansible-galaxy collection install ansible.posix`
-    ### See additional notes in documentation, if required
-    # - name: Permanently permit traffic in public zone on port 9000/tcp
-    #   ansible.posix.firewalld:
-    #     port: 9000/tcp
-    #     zone: public
-    #     state: enabled
-    #     permanent: true
-    #####
-    # Configure Firewalld
-    - name: Copy and execute firewall script
-      copy:
-        src: ./mini-firewall.sh
-        dest: ./mini-firewall.sh
-
-    - name: Permanently permit traffic in public zone on port 9000/tcp
-      ansible.builtin.command: bash ./mini-firewall.sh
-      register: m_firewall
-
-    - debug:
-        var: m_firewall.stdout_lines
-
-    # Check port connectivity
-    ## Alternative with ansible.builtin.wait_for
-    - name: Checking port is open
-      ansible.builtin.command: telnet localhost 9000
-      register: m_telnet_status
-
-    - debug:
-        var: m_telnet_status.stdout_lines
-
-    - name: Start service MinIO, if not started
-      ansible.builtin.service:
-        name: minio.service
-        state: started
-        enabled: yes
-        masked: false
-
-    # Check service running fine
-    ## Alternative with ansible.builtin.service_facts || ansible.builtin.debug
-    - name: Check status of MinIO
-      ansible.builtin.command: systemctl status minio
-      register: m_status
-
-    - debug:
-        var: m_status.stdout_lines
 ...
